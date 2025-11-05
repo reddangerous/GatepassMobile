@@ -252,4 +252,31 @@ export const gatePassService = {
       return { data: null, error };
     }
   },
+
+  // Get current active gate pass for a user (approved or checked out)
+  async getCurrentActivePass(userId: string) {
+    try {
+      // Get user's passes and filter for active ones
+      const response = await apiService.get<{
+        data: GatePass[];
+        pagination: any;
+      }>(`/gate-passes/user/${userId}?limit=10&status=APPROVED,CHECKED_OUT`);
+      
+      if (response && response.data && Array.isArray(response.data)) {
+        // Find the most recent approved or checked out pass
+        const activePasses = response.data.filter(pass => 
+          pass.status === 'APPROVED' || pass.status === 'CHECKED_OUT'
+        );
+        
+        if (activePasses.length > 0) {
+          // Return the most recent one
+          return { data: activePasses[0], error: null };
+        }
+      }
+      
+      return { data: null, error: null };
+    } catch (error: any) {
+      return { data: null, error };
+    }
+  },
 };

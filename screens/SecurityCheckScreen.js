@@ -16,7 +16,7 @@ import { Search, LogOut, LogIn, Clock, MapPin, User as UserIcon } from 'lucide-r
 export default function SecurityCheckScreen() {
   const { user } = useAuth();
   const [payrollNo, setPayrollNo] = useState('');
-  const [gatePass, setGatePass] = useState(null);
+  const [gatePasses, setGatePasses] = useState([]); // Changed to array
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
 
@@ -32,21 +32,23 @@ export default function SecurityCheckScreen() {
 
     if (error) {
       Alert.alert('Error', 'Failed to fetch gate pass');
-      setGatePass(null);
-    } else if (!data) {
-      Alert.alert('No Active Pass', 'No active gate pass found for this payroll number');
-      setGatePass(null);
+      setGatePasses([]);
+    } else if (!data || data.length === 0) {
+      Alert.alert('No Active Pass', 'No active gate passes found for this payroll number');
+      setGatePasses([]);
     } else {
-      setGatePass(data);
+      // Backend now returns array of all active passes
+      setGatePasses(Array.isArray(data) ? data : [data]);
+      Alert.alert('Success', `Found ${Array.isArray(data) ? data.length : 1} active pass(es)`);
     }
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckOut = async (gatePass) => {
     if (!gatePass) return;
 
     Alert.alert(
       'Check Out',
-      `Check out ${gatePass.user?.name}?`,
+      `Check out ${gatePass.user?.name}?\nDestination: ${gatePass.destination}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -60,8 +62,8 @@ export default function SecurityCheckScreen() {
               Alert.alert('Error', 'Failed to check out');
             } else {
               Alert.alert('Success', 'User checked out successfully');
-              setGatePass(null);
-              setPayrollNo('');
+              // Refresh the search to update the list
+              handleSearch();
             }
           },
         },
@@ -69,12 +71,12 @@ export default function SecurityCheckScreen() {
     );
   };
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = async (gatePass) => {
     if (!gatePass) return;
 
     Alert.alert(
       'Check In',
-      `Check in ${gatePass.user?.name}?`,
+      `Check in ${gatePass.user?.name}?\nFrom: ${gatePass.destination}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -88,8 +90,8 @@ export default function SecurityCheckScreen() {
               Alert.alert('Error', 'Failed to check in');
             } else {
               Alert.alert('Success', 'User checked in successfully');
-              setGatePass(null);
-              setPayrollNo('');
+              // Refresh the search to update the list
+              handleSearch();
             }
           },
         },
@@ -146,123 +148,129 @@ export default function SecurityCheckScreen() {
         </View>
       </View>
 
-      {gatePass && (
+      {gatePasses.length > 0 && (
         <View style={styles.resultSection}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.statusBadge}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: getStatusColor(gatePass.status) },
-                  ]}
-                />
-                <Text style={styles.statusText}>{gatePass.status.replace('_', ' ')}</Text>
-              </View>
-            </View>
-
-            <View style={styles.userSection}>
-              <View style={styles.userInfo}>
-                <UserIcon size={48} color="#007AFF" />
-                <View style={styles.userDetails}>
-                  <Text style={styles.userName}>{gatePass.user?.name}</Text>
-                  <Text style={styles.payrollText}>Payroll: {payrollNo}</Text>
-                  <Text style={styles.departmentText}>
-                    Dept: {gatePass.user?.department_name || 'N/A'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.detailsSection}>
-              <View style={styles.detailRow}>
-                <MapPin size={18} color="#666" />
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Destination</Text>
-                  <Text style={styles.detailValue}>{gatePass.destination}</Text>
+          <Text style={styles.resultHeader}>
+            Found {gatePasses.length} Active Pass{gatePasses.length > 1 ? 'es' : ''}
+          </Text>
+          
+          {gatePasses.map((gatePass) => (
+            <View key={gatePass.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.statusBadge}>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: getStatusColor(gatePass.status) },
+                    ]}
+                  />
+                  <Text style={styles.statusText}>{gatePass.status.replace('_', ' ')}</Text>
                 </View>
               </View>
 
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Reason:</Text>
-                <Text style={styles.detailValue}>{gatePass.reason}</Text>
-              </View>
-
-              <View style={styles.detailRow}>
-                <Clock size={18} color="#666" />
-                <View style={styles.detailContent}>
-                  <Text style={styles.detailLabel}>Expected Return</Text>
-                  <Text style={styles.detailValue}>
-                    {formatDate(gatePass.expected_return)}
-                  </Text>
-                </View>
-              </View>
-
-              {gatePass.out_time && (
-                <View style={styles.detailRow}>
-                  <LogOut size={18} color="#FF9500" />
-                  <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Checked Out</Text>
-                    <Text style={styles.detailValue}>
-                      {formatDate(gatePass.out_time)}
+              <View style={styles.userSection}>
+                <View style={styles.userInfo}>
+                  <UserIcon size={48} color="#007AFF" />
+                  <View style={styles.userDetails}>
+                    <Text style={styles.userName}>{gatePass.user?.name}</Text>
+                    <Text style={styles.payrollText}>Payroll: {payrollNo}</Text>
+                    <Text style={styles.departmentText}>
+                      Dept: {gatePass.user?.department_name || 'N/A'}
                     </Text>
                   </View>
                 </View>
-              )}
+              </View>
 
-              {gatePass.in_time && (
+              <View style={styles.divider} />
+
+              <View style={styles.detailsSection}>
                 <View style={styles.detailRow}>
-                  <LogIn size={18} color="#34C759" />
+                  <MapPin size={18} color="#666" />
                   <View style={styles.detailContent}>
-                    <Text style={styles.detailLabel}>Checked In</Text>
+                    <Text style={styles.detailLabel}>Destination</Text>
+                    <Text style={styles.detailValue}>{gatePass.destination}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Reason:</Text>
+                  <Text style={styles.detailValue}>{gatePass.reason}</Text>
+                </View>
+
+                <View style={styles.detailRow}>
+                  <Clock size={18} color="#666" />
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Expected Return</Text>
                     <Text style={styles.detailValue}>
-                      {formatDate(gatePass.in_time)}
+                      {formatDate(gatePass.expected_return)}
                     </Text>
                   </View>
                 </View>
-              )}
+
+                {gatePass.out_time && (
+                  <View style={styles.detailRow}>
+                    <LogOut size={18} color="#FF9500" />
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Checked Out</Text>
+                      <Text style={styles.detailValue}>
+                        {formatDate(gatePass.out_time)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {gatePass.in_time && (
+                  <View style={styles.detailRow}>
+                    <LogIn size={18} color="#34C759" />
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailLabel}>Checked In</Text>
+                      <Text style={styles.detailValue}>
+                        {formatDate(gatePass.in_time)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.actions}>
+                {gatePass.status === 'APPROVED' && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.checkOutButton]}
+                    onPress={() => handleCheckOut(gatePass)}
+                    disabled={processing}
+                  >
+                    <LogOut size={20} color="#fff" />
+                    <Text style={styles.actionButtonText}>
+                      {processing ? 'Processing...' : 'Check Out'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {gatePass.status === 'CHECKED_OUT' && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.checkInButton]}
+                    onPress={() => handleCheckIn(gatePass)}
+                    disabled={processing}
+                  >
+                    <LogIn size={20} color="#fff" />
+                    <Text style={styles.actionButtonText}>
+                      {processing ? 'Processing...' : 'Check In'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {gatePass.status === 'RETURNED' && (
+                  <View style={styles.completedBadge}>
+                    <Text style={styles.completedText}>✓ Trip Completed</Text>
+                  </View>
+                )}
+              </View>
             </View>
-
-            <View style={styles.actions}>
-              {gatePass.status === 'APPROVED' && (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.checkOutButton]}
-                  onPress={handleCheckOut}
-                  disabled={processing}
-                >
-                  <LogOut size={20} color="#fff" />
-                  <Text style={styles.actionButtonText}>
-                    {processing ? 'Processing...' : 'Check Out'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {gatePass.status === 'CHECKED_OUT' && (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.checkInButton]}
-                  onPress={handleCheckIn}
-                  disabled={processing}
-                >
-                  <LogIn size={20} color="#fff" />
-                  <Text style={styles.actionButtonText}>
-                    {processing ? 'Processing...' : 'Check In'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {gatePass.status === 'RETURNED' && (
-                <View style={styles.completedBadge}>
-                  <Text style={styles.completedText}>✓ Trip Completed</Text>
-                </View>
-              )}
-            </View>
-          </View>
+          ))}
         </View>
       )}
 
-      {!gatePass && !loading && (
+      {gatePasses.length === 0 && !loading && (
         <View style={styles.emptyState}>
           <Search size={64} color="#ccc" />
           <Text style={styles.emptyText}>Enter a payroll number to search</Text>
@@ -326,6 +334,13 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 0,
   },
+  resultHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -335,6 +350,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    marginBottom: 16,
   },
   cardHeader: {
     marginBottom: 16,

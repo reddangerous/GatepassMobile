@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiService from '@/lib/api';
 import { User, AuthResponse, PasswordChangeRequest } from '@/lib/types';
 import * as SecureStore from 'expo-secure-store';
+import { notificationService } from '@/services/notificationService';
 
 interface AuthContextType {
   user: User | null;
@@ -35,12 +36,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await apiService.setToken(token);
         const userData = await apiService.get<User>('/auth/me');
         setUser(userData);
+        
+        // Register for push notifications after loading user
+        await registerPushNotifications();
       }
     } catch (error) {
       console.error('Error loading user:', error);
       await apiService.clearToken();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const registerPushNotifications = async () => {
+    try {
+      const pushToken = await notificationService.registerForPushNotifications();
+      if (pushToken) {
+        // Send push token to backend
+        await apiService.post('/auth/push-token', { push_token: pushToken });
+        console.log('📱 Push token registered successfully');
+      }
+    } catch (error) {
+      console.error('❌ Failed to register push notifications:', error);
+      // Don't fail login if push notification registration fails
     }
   };
 
@@ -70,6 +88,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(response.user);
       setRequiresPasswordChange(false);
       setTempUser(null);
+      
+      // Register for push notifications after successful login
+      await registerPushNotifications();
       
       return { error: null };
     } catch (error: any) {

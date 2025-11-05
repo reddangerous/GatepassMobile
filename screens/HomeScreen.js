@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,20 +17,67 @@ import { notificationService } from '@/services/notificationService';
 import { getKenyaTime, addMinutesToKenyaTime, formatKenyaTime } from '@/utils/timezone';
 import apiService from '@/lib/api';
 import AnalogClock from '@/components/AnalogClock';
-import { PlusCircle, MapPin, Clock, ChevronDown, History, User, Shield, FileText } from 'lucide-react-native';
+import PrintGatePass from '@/components/PrintGatePass';
+import { PlusCircle, MapPin, Clock, ChevronDown, History, User, Shield, FileText, Printer, CheckCircle } from 'lucide-react-native';
 
 export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [reason, setReason] = useState('');
   const [destination, setDestination] = useState('');
-  const [selectedDuration, setSelectedDuration] = useState(60); // Duration in minutes
+  const [selectedDuration, setSelectedDuration] = useState(30); // Duration in minutes (default 30 min)
   const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [selectedGatePassForPrint, setSelectedGatePassForPrint] = useState(null);
+  const [activeGatePass, setActiveGatePass] = useState(null);
+  const [loadingActivePass, setLoadingActivePass] = useState(false);
 
-  // Generate duration options in 5-minute intervals up to 2 hours (120 minutes)
+  // Load active gate pass on mount
+  useEffect(() => {
+    if (user?.id && (user?.role === 'STAFF' || user?.role === 'HOD')) {
+      loadActiveGatePass();
+    }
+  }, [user]);
+
+  const loadActiveGatePass = async () => {
+    if (!user?.id) return;
+    
+    setLoadingActivePass(true);
+    try {
+      const { data, error } = await gatePassService.getCurrentActivePass(user.id);
+      if (!error && data) {
+        setActiveGatePass(data);
+      } else {
+        setActiveGatePass(null);
+      }
+    } catch (error) {
+      console.error('Error loading active gate pass:', error);
+      setActiveGatePass(null);
+    } finally {
+      setLoadingActivePass(false);
+    }
+  };
+
+  const handlePrintActivePass = () => {
+    if (activeGatePass) {
+      // Only allow printing approved or checked out passes
+      if (activeGatePass.status === 'APPROVED' || activeGatePass.status === 'CHECKED_OUT' || activeGatePass.status === 'RETURNED') {
+        setSelectedGatePassForPrint(activeGatePass);
+        setShowPrintModal(true);
+      } else {
+        Alert.alert(
+          'Cannot Print',
+          'Only approved gate passes can be printed. Please wait for approval.'
+        );
+      }
+    }
+  };
+
+  // Generate duration options in 5-minute intervals up to 1 hour (60 minutes)
+  // For durations longer than 1 hour, employees should apply for time leave
   const durationOptions = [];
-  for (let i = 5; i <= 120; i += 5) {
+  for (let i = 5; i <= 60; i += 5) {
     const hours = Math.floor(i / 60);
     const minutes = i % 60;
     let label = '';
@@ -60,6 +107,16 @@ export default function HomeScreen({ navigation }) {
   const handleSubmit = async () => {
     if (!reason.trim() || !destination.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    // Validate that reason is not "Personal" or similar variations
+    const reasonLower = reason.trim().toLowerCase();
+    if (reasonLower === 'personal' || reasonLower === 'personal reason' || reasonLower === 'personal reasons') {
+      Alert.alert(
+        'Invalid Reason',
+        'Please provide a specific reason for your gate pass request. "Personal" is not acceptable as per company policy.'
+      );
       return;
     }
 
@@ -102,15 +159,17 @@ export default function HomeScreen({ navigation }) {
       
       Alert.alert(
         'Success', 
-        'Gate pass request submitted successfully!',
+        'Gate pass request submitted successfully and is pending approval!',
         [
           {
             text: 'OK',
             onPress: () => {
               setReason('');
               setDestination('');
-              setSelectedDuration(60);
+              setSelectedDuration(30);
               setShowForm(false);
+              // Reload active pass in case this is an update
+              loadActiveGatePass();
             }
           }
         ]
@@ -200,6 +259,34 @@ export default function HomeScreen({ navigation }) {
 
       {(user?.role === 'STAFF' || user?.role === 'HOD') && (
         <>
+          {/* Active Gate Pass Card */}
+          {activeGatePass && !showForm && (
+            <View style={styles.activePassCard}>
+              <View style={styles.activePassHeader}>
+                <View style={styles.activePassTitleRow}>
+                  <CheckCircle size={20} color="#34C759" />
+                  <Text style={styles.activePassTitle}>Active Gate Pass</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.printIconButton}
+                  onPress={handlePrintActivePass}
+                >
+                  <Printer size={20} color="#007AFF" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.activePassContent}>
+                <Text style={styles.activePassLabel}>Destination</Text>
+                <Text style={styles.activePassValue}>{activeGatePass.destination}</Text>
+                <Text style={[styles.activePassLabel, { marginTop: 8 }]}>Status</Text>
+                <View style={styles.activePassStatusBadge}>
+                  <Text style={styles.activePassStatusText}>
+                    {activeGatePass.status}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {!showForm ? (
             <TouchableOpacity
               style={styles.requestButton}
@@ -216,7 +303,7 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.label}>Reason</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
-                  placeholder="e.g., Bank visit, Personal emergency"
+                  placeholder="e.g., Bank appointment, Doctor visit, Client meeting"
                   value={reason}
                   onChangeText={setReason}
                   multiline
@@ -253,6 +340,9 @@ export default function HomeScreen({ navigation }) {
                     minute: '2-digit',
                     hour12: true 
                   })}
+                </Text>
+                <Text style={styles.policyText}>
+                  ⓘ Maximum duration: 1 hour. For longer absences, please apply for time leave.
                 </Text>
               </View>
 
@@ -355,6 +445,18 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </View>
       </View>
+
+      {/* Print Modal for active gate pass */}
+      {selectedGatePassForPrint && (
+        <PrintGatePass
+          gatePass={selectedGatePassForPrint}
+          visible={showPrintModal}
+          onClose={() => {
+            setShowPrintModal(false);
+            setSelectedGatePassForPrint(null);
+          }}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -670,5 +772,79 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  policyText: {
+    fontSize: 11,
+    color: '#FF9500',
+    marginTop: 6,
+    fontWeight: '500',
+    backgroundColor: '#fff8e6',
+    padding: 8,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9500',
+  },
+  activePassCard: {
+    backgroundColor: '#fff',
+    margin: 20,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#34C759',
+  },
+  activePassHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  activePassTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activePassTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#34C759',
+  },
+  printIconButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  activePassContent: {
+    gap: 4,
+  },
+  activePassLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+  },
+  activePassValue: {
+    fontSize: 15,
+    color: '#1a1a1a',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  activePassStatusBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#34C759',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  activePassStatusText: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

@@ -54,9 +54,9 @@ export default function ApprovalsScreen() {
     }
 
     try {
-      const { data, error } = await gatePassService.getPendingApprovals(user.id);
-      if (!error && data && Array.isArray(data)) {
-        setPasses(data);
+      const { data, error } = await gatePassService.getPendingApprovalsPaginated(user.id, { limit: 100 });
+      if (!error && data && data.data && Array.isArray(data.data)) {
+        setPasses(data.data);
       } else {
         console.error('Error loading pending passes:', error);
         setPasses([]);
@@ -77,6 +77,7 @@ export default function ApprovalsScreen() {
     setRefreshing(true);
     loadPendingPasses();
   };
+// IN('MACCOFFEE', 'KENTASTE', 'HENKEL LAUNDRY', 'HENKEL BEAUTY')
 
   const getApprovalTitle = () => {
     switch (user?.role) {

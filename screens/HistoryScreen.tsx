@@ -14,9 +14,10 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { gatePassService } from '@/utils/gatePassService';
 import { GatePass } from '@/lib/types';
-import { Clock, MapPin, CheckCircle, XCircle, AlertCircle, Filter, ChevronDown, Users } from 'lucide-react-native';
+import { Clock, MapPin, CheckCircle, XCircle, AlertCircle, Filter, ChevronDown, Users, Printer } from 'lucide-react-native';
 import PaginationControls from '../components/PaginationControls';
 import ExportButton from '../components/ExportButton';
+import PrintGatePass from '../components/PrintGatePass';
 
 interface Employee {
   id: string;
@@ -42,6 +43,10 @@ export default function HistoryScreen() {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+
+  // Print modal state
+  const [printModalVisible, setPrintModalVisible] = useState(false);
+  const [selectedPassForPrint, setSelectedPassForPrint] = useState<GatePass | null>(null);
 
   const isHOD = user?.role === 'HOD';
   const isCEO = user?.role === 'CEO';
@@ -203,22 +208,46 @@ export default function HistoryScreen() {
     }
   };
 
+  const handlePrintPress = (pass: GatePass) => {
+    // Only allow printing for approved or completed passes
+    if (pass.status === 'PENDING' || pass.status === 'REJECTED') {
+      Alert.alert(
+        'Cannot Print',
+        'Only approved gate passes can be printed. This pass is currently ' + pass.status?.toLowerCase() + '.'
+      );
+      return;
+    }
+    setSelectedPassForPrint(pass);
+    setPrintModalVisible(true);
+  };
+
   const renderPassItem = ({ item: pass }: { item: GatePass }) => (
     <View style={styles.passCard}>
       <View style={styles.passHeader}>
         <View style={styles.passInfo}>
           {(isHOD || isCEO) && pass.user && (
             <Text style={styles.employeeName}>
-              {pass.user.name} ({pass.user.payroll_no})
+              {pass.user.name || 'Unknown'} ({pass.user.payroll_no || 'N/A'})
             </Text>
           )}
           <Text style={styles.passReason}>{pass.reason || 'No reason provided'}</Text>
         </View>
-        <View style={styles.statusContainer}>
-          {getStatusIcon(pass.status)}
-          <Text style={[styles.statusText, { color: getStatusColor(pass.status) }]}>
-            {(pass.status || 'Unknown').toUpperCase()}
-          </Text>
+        <View style={styles.headerActions}>
+          <View style={styles.statusContainer}>
+            {getStatusIcon(pass.status)}
+            <Text style={[styles.statusText, { color: getStatusColor(pass.status) }]}>
+              {(pass.status || 'Unknown').toUpperCase()}
+            </Text>
+          </View>
+          {/* Print button - only for approved/checked out/returned passes */}
+          {(pass.status === 'APPROVED' || pass.status === 'CHECKED_OUT' || pass.status === 'RETURNED') && (
+            <TouchableOpacity
+              style={styles.printButton}
+              onPress={() => handlePrintPress(pass)}
+            >
+              <Printer size={18} color="#007AFF" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -334,16 +363,20 @@ export default function HistoryScreen() {
         <Text style={styles.headerTitle}>
           {isHOD || isCEO ? 'Department History' : 'My Gate Passes'}
         </Text>
-        <ExportButton
-          type={isHOD || isCEO ? 'department' : 'user'}
-          userId={!isHOD && !isCEO ? user?.id : undefined}
-          departmentId={isHOD || isCEO ? user?.department_id || undefined : undefined}
-          filters={{
-            status: selectedStatus,
-            employeeId: selectedEmployee,
-          }}
-          disabled={loading}
-        />
+        {/* Only show export button for HOD and CEO, not for regular employees */}
+        {(isHOD || isCEO) && (
+          <ExportButton
+            type="department"
+            departmentId={user?.department_id || undefined}
+            filters={{
+              status: selectedStatus,
+              employeeId: selectedEmployee,
+            }}
+            disabled={loading}
+          />
+        )}
+        {/* Add placeholder view to maintain layout when export button is hidden */}
+        {!isHOD && !isCEO && <View style={{ width: 40 }} />}
       </View>
 
       {(isHOD || isCEO) && (
@@ -486,6 +519,18 @@ export default function HistoryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Print Modal */}
+      {selectedPassForPrint && (
+        <PrintGatePass
+          gatePass={selectedPassForPrint}
+          visible={printModalVisible}
+          onClose={() => {
+            setPrintModalVisible(false);
+            setSelectedPassForPrint(null);
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -590,6 +635,11 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
   },
+  headerActions: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -602,6 +652,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginLeft: 4,
+  },
+  printButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#f0f8ff',
+    borderWidth: 1,
+    borderColor: '#007AFF',
   },
   passDetails: {
     gap: 8,

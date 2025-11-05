@@ -3,9 +3,9 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 // API Configuration
-// IMPORTANT: Use your computer's IP address, NOT localhost!
+// IMPORTANT: Use your server's IP address, NOT localhost!
 // localhost only works in emulator, not on physical devices
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL || 'http://192.168.2.53:3000/api';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.106:3005/api';
 
 class ApiService {
   private client: AxiosInstance;
