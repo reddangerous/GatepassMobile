@@ -4,18 +4,38 @@
     "slug": "gatepass-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/chandaria.png",
     "scheme": "gatepass",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/chandaria.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "splash": {
+        "image": "./assets/images/chandaria.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff"
+      }
     },
     "android": {
       "package": "com.gatepass.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/chandaria.png",
         "backgroundColor": "#ffffff"
+      },
+      "splash": {
+        "image": "./assets/images/chandaria.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#ffffff",
+        "mdpi": "./assets/images/chandaria.png",
+        "hdpi": "./assets/images/chandaria.png",
+        "xhdpi": "./assets/images/chandaria.png",
+        "xxhdpi": "./assets/images/chandaria.png",
+        "xxxhdpi": "./assets/images/chandaria.png"
       }
     },
     "web": {
