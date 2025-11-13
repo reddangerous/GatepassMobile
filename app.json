@@ -23,6 +23,7 @@
     },
     "android": {
       "package": "com.gatepass.mobile",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/chandaria.png",
         "backgroundColor": "#ffffff"
@@ -56,6 +57,12 @@
         "projectId": "db238de0-8058-473f-acb0-028623d9a994"
       }
     },
-    "owner": "reddangerous"
+    "owner": "reddangerous",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/db238de0-8058-473f-acb0-028623d9a994"
+    }
   }
 }

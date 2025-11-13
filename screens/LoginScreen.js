@@ -11,12 +11,15 @@ import {
   Image,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import Constants from 'expo-constants';
 
 export default function LoginScreen({ navigation }) {
   const [payrollNo, setPayrollNo] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+
+  const apiUrl = Constants.expoConfig?.extra?.apiUrl || 'URL not found';
 
   const handleLogin = async () => {
     if (!payrollNo || !password) {
@@ -51,12 +54,15 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.title}>Gate Pass System</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
+        <Text style={styles.apiUrlText}>Connecting to: {apiUrl}</Text>
+
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
             placeholder="Payroll Number"
             value={payrollNo}
             onChangeText={setPayrollNo}
+            keyboardType="number-pad"
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -130,7 +136,13 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 40,
+    marginBottom: 20,
+  },
+  apiUrlText: {
+    textAlign: 'center',
+    color: '#ff0000',
+    marginBottom: 20,
+    fontWeight: 'bold',
   },
   inputContainer: {
     marginBottom: 24,

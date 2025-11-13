@@ -15,6 +15,14 @@
     "production": {
       "autoIncrement": true,
       "node": "18.0.0"
+    },
+    "production-local": {
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "distribution": "internal",
+      "channel": "production"
     }
   },
   "submit": {
